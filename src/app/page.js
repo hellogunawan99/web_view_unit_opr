@@ -1,101 +1,332 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useEffect, useState, useRef } from "react";
+import axios from "axios";
+import * as XLSX from "xlsx";
+
+const TabelPengguna = () => {
+  const [units, setUnits] = useState([]);
+  const [sortColumn, setSortColumn] = useState(null);
+  const [sortOrder, setSortOrder] = useState("asc");
+
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get("http://localhost:3001/api/get-unit-details");
+        setUnits(response.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleSort = (column) => {
+    const newOrder = sortColumn === column && sortOrder === "asc" ? "desc" : "asc";
+    setSortColumn(column);
+    setSortOrder(newOrder);
+
+    const sortedData = [...units].sort((a, b) => {
+      if (a[column] < b[column]) {
+        return newOrder === "asc" ? -1 : 1;
+      }
+      if (a[column] > b[column]) {
+        return newOrder === "asc" ? 1 : -1;
+      }
+      return 0;
+    });
+
+    setUnits(sortedData);
+  };
+
+  const downloadExcelWithData = () => {
+    try {
+      const downloadData = units.map(unit => ({
+        "ID Unit": unit.id_unit,
+        "Type Unit": unit.type_unit,
+        "Status Opr": unit.status_opr,
+        "Lokasi": unit.lokasi,
+        "Tanggal": unit.tanggal,
+        "Status Jigsaw": unit.status_jigsaw
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(downloadData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Unit Data");
+      XLSX.writeFile(workbook, "unit_data.xlsx");
+    } catch (error) {
+      console.error("Error downloading Excel:", error);
+      alert('Gagal mengunduh data');
+    }
+  };
+  
+  const handleUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
+        'application/vnd.ms-excel'
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        alert('Hanya file Excel yang diperbolehkan');
+        // Reset input file menggunakan ref
+        if (fileInputRef.current) {
+          fileInputRef.current.value = null;
+        }
+        return;
+      }
+  
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Ukuran file terlalu besar. Maks 5MB');
+        // Reset input file menggunakan ref
+        if (fileInputRef.current) {
+          fileInputRef.current.value = null;
+        }
+        return;
+      }
+  
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = reader.result;
+          const workbook = XLSX.read(data, { type: "binary" });
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+  
+          const expectedHeaders = [
+            "ID Unit", "Type Unit", "Status Opr", "Lokasi", "Tanggal"
+          ];
+          
+          const headers = Object.keys(jsonData[0] || {});
+          const isValidStructure = expectedHeaders.every(header => 
+            headers.includes(header)
+          );
+  
+          if (!isValidStructure) {
+            alert('Struktur file Excel tidak sesuai');
+            // Reset input file menggunakan ref
+            if (fileInputRef.current) {
+              fileInputRef.current.value = null;
+            }
+            return;
+          }
+
+          // Validasi Status Operasi
+          const invalidStatusRows = jsonData.filter(row => 
+            !['operasi', 'standby'].includes(row["Status Opr"].toLowerCase())
+          );
+
+          if (invalidStatusRows.length > 0) {
+            const invalidStatuses = [...new Set(invalidStatusRows.map(row => row["Status Opr"]))];
+            alert(`Status operasi tidak valid: ${invalidStatuses.join(', ')}. Hanya "operasi" dan "standby" yang diperbolehkan.`);
+            // Reset input file menggunakan ref
+            if (fileInputRef.current) {
+              fileInputRef.current.value = null;
+            }
+            return;
+          }
+  
+          const newData = jsonData.map((row) => {
+            // Konversi tanggal Excel ke format yang valid
+            let convertedDate;
+            if (typeof row["Tanggal"] === 'number') {
+              // Konversi nomor tanggal Excel ke format Date
+              const excelDate = new Date(Date.UTC(1900, 0, row["Tanggal"] - 1));
+              convertedDate = excelDate.toISOString().split('T')[0]; // Format YYYY-MM-DD
+            } else {
+              // Jika sudah dalam format string, gunakan langsung
+              convertedDate = row["Tanggal"];
+            }
+  
+            return {
+              id_unit: row["ID Unit"],
+              type_unit: row["Type Unit"],
+              status_opr: row["Status Opr"].toLowerCase(), // Konversi ke lowercase untuk konsistensi
+              lokasi: row["Lokasi"],
+              tanggal: convertedDate
+            };
+          });
+  
+          axios
+            .post("http://localhost:3001/api/add-unit-details", newData)
+            .then((response) => {
+              // Fetch updated data after upload
+              return axios.get("http://localhost:3001/api/get-unit-details");
+            })
+            .then((response) => {
+              setUnits(response.data);
+              alert(`Berhasil mengunggah ${newData.length} data`);
+              // Reset input file setelah upload berhasil
+              if (fileInputRef.current) {
+                fileInputRef.current.value = null;
+              }
+            })
+            .catch((err) => {
+              console.error("Error adding data:", err);
+              alert('Gagal mengunggah data');
+              // Reset input file jika upload gagal
+              if (fileInputRef.current) {
+                fileInputRef.current.value = null;
+              }
+            });
+        } catch (error) {
+          console.error('Error processing file:', error);
+          alert('Gagal memproses file');
+          // Reset input file menggunakan ref
+          if (fileInputRef.current) {
+            fileInputRef.current.value = null;
+          }
+        }
+      };
+      
+      reader.onerror = (error) => {
+        console.error('Error reading file:', error);
+        alert('Gagal membaca file');
+        // Reset input file menggunakan ref
+        if (fileInputRef.current) {
+          fileInputRef.current.value = null;
+        }
+      };
+      
+      reader.readAsBinaryString(file);
+    }
+  };
+
+  // Function to get background color for Status Jigsaw
+  const getStatusOprBackground = (status) => {
+    switch(status) {
+      case 'operasi':
+        return 'bg-green-300'; // Light green background
+      case 'standby':
+        return 'bg-orange-300';   // Light red background
+      default:
+        return '';              // No special background
+    }
+  };
+  
+  const getStatusJigsawBackground = (status) => {
+    switch(status) {
+      case 'Installed':
+        return 'bg-green-300'; // Light green background
+      case 'Uninstall':
+        return 'bg-red-300';   // Light red background
+      default:
+        return '';              // No special background
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="container mx-auto p-6">
+      <div className="bg-white shadow-lg rounded-xl overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <h1 className="text-2xl font-semibold text-gray-800">Status Unit</h1>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+        <div className="flex justify-between p-4">
+          <button
+            onClick={downloadExcelWithData}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg"
+          >
+            Download Excel (With Data)
+          </button>
+          <input
+            ref={fileInputRef}  // Tambahkan ref di sini
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleUpload}
+            className="bg-green-500 text-white px-4 py-2 rounded-lg cursor-pointer"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                <th className="py-3 px-6 text-center" onClick={() => handleSort("id_unit")}>
+                  <div className="flex items-center cursor-pointer justify-center">
+                    <span>No</span>
+                    <span className={`ml-2 ${sortColumn === "id_unit" ? (sortOrder === "asc" ? "arrow-up" : "arrow-down") : ""}`}></span>
+                  </div>
+                </th>
+                <th className="py-3 px-6 text-center" onClick={() => handleSort("id_unit")}>
+                  <div className="flex items-center cursor-pointer justify-center">
+                    <span>ID Unit</span>
+                    <span className={`ml-2 ${sortColumn === "id_unit" ? (sortOrder === "asc" ? "arrow-up" : "arrow-down") : ""}`}></span>
+                  </div>
+                </th>
+                <th className="py-3 px-6 text-center" onClick={() => handleSort("type_unit")}>
+                  <div className="flex items-center cursor-pointer justify-center">
+                    <span>Type Unit</span>
+                    <span className={`ml-2 ${sortColumn === "type_unit" ? (sortOrder === "asc" ? "arrow-up" : "arrow-down") : ""}`}></span>
+                  </div>
+                </th>
+                <th className="py-3 px-6 text-center" onClick={() => handleSort("status_opr")}>
+                  <div className="flex items-center cursor-pointer justify-center">
+                    <span>Status Opr</span>
+                    <span className={`ml-2 ${sortColumn === "status_opr" ? (sortOrder === "asc" ? "arrow-up" : "arrow-down") : ""}`}></span>
+                  </div>
+                </th>
+                <th className="py-3 px-6 text-center" onClick={() => handleSort("lokasi")}>
+                  <div className="flex items-center cursor-pointer justify-center">
+                    <span>Lokasi</span>
+                    <span className={`ml-2 ${sortColumn === "lokasi" ? (sortOrder === "asc" ? "arrow-up" : "arrow-down") : ""}`}></span>
+                  </div>
+                </th>
+                <th className="py-3 px-6 text-center" onClick={() => handleSort("tanggal")}>
+                  <div className="flex items-center cursor-pointer justify-center">
+                    <span>Tanggal</span>
+                    <span className={`ml-2 ${sortColumn === "tanggal" ? (sortOrder === "asc" ? "arrow-up" : "arrow-down") : ""}`}></span>
+                  </div>
+                </th>
+                <th className="py-3 px-6 text-center" onClick={() => handleSort("status_jigsaw")}>
+                  <div className="flex items-center cursor-pointer justify-center">
+                    <span>Status Jigsaw</span>
+                    <span className={`ml-2 ${sortColumn === "status_jigsaw" ? (sortOrder === "asc" ? "arrow-up" : "arrow-down") : ""}`}></span>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="text-gray-600 text-sm font-light">
+              {units.map((unit, index) => (
+                <tr
+                  key={unit.id_unit}
+                  className={`border-b border-gray-200 hover:bg-gray-100 transition-colors ${
+                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                  }`}
+                >
+                  <td className="py-3 px-6 text-center whitespace-nowrap">
+                    <div>{index + 1}</div>
+                  </td>
+                  <td className="py-3 px-6 text-center whitespace-nowrap">
+                    <div className="font-bold">{unit.id_unit}</div>
+                  </td>
+                  <td className="py-3 px-6 text-center whitespace-nowrap">
+                    <div>{unit.type_unit}</div>
+                  </td>
+                  <td className={`py-3 px-6 text-center whitespace-nowrap ${getStatusOprBackground(unit.status_opr)}`}>
+                    <div className="font-bold">{unit.status_opr}</div>
+                  </td>
+                  <td className="py-3 px-6 text-center whitespace-nowrap">
+                    <div>{unit.lokasi}</div>
+                  </td>
+                  <td className="py-3 px-6 text-center whitespace-nowrap">
+                    <div>{unit.tanggal}</div>
+                  </td>
+                  <td className={`py-3 px-6 text-center whitespace-nowrap ${getStatusJigsawBackground(unit.status_jigsaw)}`}>
+                    <div className="font-bold">{unit.status_jigsaw}</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default TabelPengguna;

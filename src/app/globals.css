@@ -19,3 +19,56 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Menambahkan warna latar belakang yang lebih elegan */
+table th {
+  background-color: #4a90e2; /* Biru lembut */
+  color: white; /* Teks putih agar kontras */
+  font-weight: 600;
+  padding: 12px 15px;
+  text-align: center; /* Posisi teks di tengah */
+  border-bottom: 2px solid #ddd;
+  border-right: 1px solid #ddd; /* Tambahkan garis pemisah antar kolom */
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: background-color 0.3s ease-in-out;
+}
+
+/* Menyelaraskan teks di tengah untuk kolom No dan ID */
+table td:nth-child(1), /* Kolom No */
+table td:nth-child(2) {
+  /* Kolom ID */
+  text-align: center; /* Menyelaraskan teks di tengah */
+}
+
+/* Efek hover untuk header dengan perubahan warna yang lebih lembut */
+table th:hover {
+  background-color: #357abd; /* Biru yang sedikit lebih gelap */
+  cursor: pointer; /* Menambahkan kursor pointer untuk interaksi */
+}
+
+/* Menambahkan panah yang lebih tebal dan jelas */
+.arrow-up::after,
+.arrow-down::after {
+  content: "\2191"; /* Unicode panah atas untuk arrow-up */
+  font-size: 1.5rem; /* Ukuran font lebih besar untuk membuat panah lebih tebal */
+  font-weight: bold; /* Menambahkan ketebalan agar panah lebih berisi */
+  margin-left: 8px; /* Memberi jarak antara teks dan panah */
+}
+
+/* Menampilkan panah ke bawah untuk arrow-down */
+.arrow-down::after {
+  content: "\2193"; /* Unicode panah bawah untuk arrow-down */
+}
+
+/* Efek hover pada panah untuk meningkatkan ukuran sedikit */
+.arrow-up:hover,
+.arrow-down:hover {
+  transform: scale(1.2); /* Memperbesar sedikit saat hover */
+}
+
+/* Menambahkan warna untuk panah agar lebih menonjol */
+.arrow-up::after,
+.arrow-down::after {
+  color: #fff; /* Warna putih untuk panah agar kontras dengan latar belakang */
+}
