@@ -223,7 +223,7 @@ const TabelPengguna = () => {
     <div className="flex justify-center items-center min-h-screen">
       <div className="container mx-auto p-6 max-w-screen-xl bg-white shadow-lg rounded-xl overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h1 className="text-2xl font-semibold text-gray-800">Status Unit</h1>
+          <h1 className="text-2xl font-semibold text-gray-800">UNIT OPERASI</h1>
         </div>
 
         <div className="flex justify-between p-4">
@@ -278,7 +278,7 @@ const TabelPengguna = () => {
                 </th>
                 <th className="py-3 px-6 text-center" onClick={() => handleSort("tanggal")}>
                   <div className="flex items-center cursor-pointer justify-center">
-                    <span>Tanggal</span>
+                    <span>Tanggal Update</span>
                     <span className={`ml-2 ${sortColumn === "tanggal" ? (sortOrder === "asc" ? "arrow-up" : "arrow-down") : ""}`}></span>
                   </div>
                 </th>
