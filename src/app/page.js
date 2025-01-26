@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Add useEffect import
 import axios from "axios";
 import TabelPengguna from "./components/TabelPengguna";
 
@@ -9,6 +9,25 @@ export default function Home() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(true); // Add this line
+
+  // Add this useEffect block
+  useEffect(() => {
+    const checkAuthentication = async () => {
+        try {
+            const response = await axios.get('/api/auth-check');
+            if (response.data.authenticated) {
+                setCurrentPage("dashboard");
+            }
+        } catch (error) {
+            setCurrentPage("login");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    checkAuthentication();
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -34,6 +53,15 @@ export default function Home() {
       alert(error.response?.data?.message || "Terjadi kesalahan");
     }
   };
+
+    // Add this loading check before the return statement
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-100">
+          <div className="text-xl text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div>

@@ -14,20 +14,49 @@ const TabelPengguna = () => {
 
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+
   useEffect(() => {
-    const fetchData = async () => {
+    const checkAuthAndFetchData = async () => {
       try {
+        // First check authentication
+        const authResponse = await axios.get('/api/auth-check');
+        if (!authResponse.data.authenticated) {
+          window.location.href = '/';
+          return;
+        }
+        setIsAuthorized(true);
+
+        // Then fetch data
         const response = await axios.get("http://localhost:8000/data");
         setUnits(response.data);
-        setIsDataLoaded(true);  // Set this to true once data is fetched
+        setIsDataLoaded(true);
       } catch (err) {
         console.error(err);
+        if (err.response?.status === 401) {
+          window.location.href = '/';
+        }
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchData();
+    checkAuthAndFetchData();
   }, []);
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-100">
+        <div className="text-xl text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   const handleSort = (column) => {
     const newOrder = sortColumn === column && sortOrder === "asc" ? "desc" : "asc";

@@ -1,17 +1,37 @@
 const jwt = require("jsonwebtoken");
-const SECRET_KEY = "your_secret_key"; // Sama seperti di login.js
+const SECRET_KEY = "CANcer99"; // Use the same secret key as in login.js
 
-export default function handler(req, res) {
-    const token = req.cookies?.token; // Ambil token dari cookie
+export default async function handler(req, res) {
+    if (req.method !== 'GET') {
+        return res.status(405).json({ message: "Method not allowed" });
+    }
+
+    // Get token from cookies
+    const token = req.cookies.token;
+
     if (!token) {
-        return res.status(401).json({ message: "Unauthorized: Harap login kembali" });
+        return res.status(401).json({ 
+            authenticated: false,
+            message: "No token found" 
+        });
     }
 
     try {
-        const decoded = jwt.verify(token, SECRET_KEY); // Verifikasi token
-        return res.status(200).json({ message: "Authenticated", user: decoded }); // Balikkan data user
+        // Verify the token
+        const decoded = jwt.verify(token, SECRET_KEY);
+        
+        return res.status(200).json({
+            authenticated: true,
+            user: {
+                id: decoded.id,
+                username: decoded.username
+            }
+        });
     } catch (error) {
-        console.error("Token invalid:", error);
-        return res.status(403).json({ message: "Token tidak valid atau kadaluarsa" });
+        console.error("Token verification failed:", error);
+        return res.status(401).json({ 
+            authenticated: false,
+            message: "Invalid token" 
+        });
     }
 }

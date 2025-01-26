@@ -1,8 +1,9 @@
-const jwt = require("jsonwebtoken"); // Gunakan JWT
+const jwt = require("jsonwebtoken");
 const { connectDB } = require("../../../backend/db");
 const crypto = require("crypto");
 
-const SECRET_KEY = "your_secret_key"; // Gunakan key rahasia Anda
+// It's better to use environment variable for SECRET_KEY
+const SECRET_KEY = process.env.JWT_SECRET || "CANcer99"; // Better to use environment variable
 
 export default async function handler(req, res) {
     if (req.method === "POST") {
@@ -26,17 +27,34 @@ export default async function handler(req, res) {
                 return res.status(401).json({ message: "Password salah" });
             }
 
-            // Generate JWT token yang berlaku selama 1 jam
-            const payload = { id: user.id, username: user.username };
-            const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "1h" });
+            // Generate JWT token with more secure payload
+            const token = jwt.sign(
+                { 
+                    id: user.id,
+                    username: user.username,
+                    // Add timestamp for additional security
+                    iat: Math.floor(Date.now() / 1000),
+                }, 
+                SECRET_KEY, 
+                { 
+                    expiresIn: "1h",
+                    algorithm: "HS256" // Explicitly specify the algorithm
+                }
+            );
 
-            // Simpan token dalam HttpOnly cookie
-            res.setHeader("Set-Cookie", `token=${token}; HttpOnly; Max-Age=3600; Path=/`);
+            // Set cookie with additional security options
+            res.setHeader(
+                "Set-Cookie", 
+                `token=${token}; HttpOnly; Path=/; Max-Age=3600; SameSite=Strict${
+                    process.env.NODE_ENV === 'production' ? '; Secure' : ''
+                }`
+            );
 
             return res.status(200).json({
                 message: "Login berhasil",
                 mustChangePassword: user.must_change_password === 1,
             });
+
         } catch (error) {
             console.error(error);
             return res.status(500).json({ message: "Terjadi kesalahan server" });
