@@ -3,7 +3,7 @@ const { connectDB } = require("../../../backend/db");
 const crypto = require("crypto");
 
 // It's better to use environment variable for SECRET_KEY
-const SECRET_KEY = process.env.JWT_SECRET || "CANcer99"; // Better to use environment variable
+const SECRET_KEY = process.env.JWT_SECRET || "apaajaboleh"; // Better to use environment variable
 
 export default async function handler(req, res) {
     if (req.method === "POST") {

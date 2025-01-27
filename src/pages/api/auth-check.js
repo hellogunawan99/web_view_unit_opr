@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const SECRET_KEY = "CANcer99"; // Use the same secret key as in login.js
+const SECRET_KEY = "apaajaboleh"; // Use the same secret key as in login.js
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
