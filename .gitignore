@@ -10,9 +10,6 @@
 !.yarn/releases
 !.yarn/versions
 
-# Ignore node_modules in backend
-backend/node_modules/
-
 # testing
 /coverage
 
